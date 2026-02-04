@@ -96,10 +96,15 @@ jobs:
           disable-animations: true
           working-directory: packages/device_calendar_plus/example
           script: |
-            # Grant calendar permissions before running tests
+            # Build and install the app first
+            echo "Building and installing app..."
+            flutter build apk --debug
+            adb install -r build/app/outputs/flutter-apk/app-debug.apk
+
+            # Grant calendar permissions AFTER app is installed
             echo "Granting calendar permissions..."
-            adb shell pm grant to.bullet.example android.permission.READ_CALENDAR || true
-            adb shell pm grant to.bullet.example android.permission.WRITE_CALENDAR || true
+            adb shell pm grant to.bullet.example android.permission.READ_CALENDAR
+            adb shell pm grant to.bullet.example android.permission.WRITE_CALENDAR
 
             # Run integration tests
             echo "Running integration tests..."
