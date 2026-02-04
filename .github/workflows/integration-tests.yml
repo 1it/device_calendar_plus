@@ -41,6 +41,17 @@ jobs:
           cd packages/device_calendar_plus/example
           # Remove workspace resolution for CI compatibility
           sed -i 's/^resolution: workspace$//' pubspec.yaml
+          # Add dependency overrides for local packages
+          echo "" >> pubspec.yaml
+          echo "dependency_overrides:" >> pubspec.yaml
+          echo "  device_calendar_plus:" >> pubspec.yaml
+          echo "    path: ../" >> pubspec.yaml
+          echo "  device_calendar_plus_platform_interface:" >> pubspec.yaml
+          echo "    path: ../../device_calendar_plus_platform_interface" >> pubspec.yaml
+          echo "  device_calendar_plus_android:" >> pubspec.yaml
+          echo "    path: ../../device_calendar_plus_android" >> pubspec.yaml
+          echo "  device_calendar_plus_ios:" >> pubspec.yaml
+          echo "    path: ../../device_calendar_plus_ios" >> pubspec.yaml
           # Get dependencies as standalone project
           flutter pub get
 
