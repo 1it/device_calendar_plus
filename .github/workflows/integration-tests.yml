@@ -67,6 +67,10 @@ jobs:
           disable-animations: true
           script: echo "Generated AVD snapshot for caching"
 
+      - name: Build example app APK
+        run: flutter build apk --debug
+        working-directory: packages/device_calendar_plus/example
+
       - name: Run integration tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -83,8 +87,8 @@ jobs:
             adb shell pm grant to.bullet.example android.permission.READ_CALENDAR || true
             adb shell pm grant to.bullet.example android.permission.WRITE_CALENDAR || true
 
-            # Run all integration tests
+            # Run all integration tests (--no-pub since workspace already resolved)
             echo "Running integration tests..."
-            flutter test integration_test/device_calendar_test.dart --verbose
-            flutter test integration_test/recurrence_test.dart --verbose
-            flutter test integration_test/attendee_test.dart --verbose
+            flutter test integration_test/device_calendar_test.dart --no-pub
+            flutter test integration_test/recurrence_test.dart --no-pub
+            flutter test integration_test/attendee_test.dart --no-pub
