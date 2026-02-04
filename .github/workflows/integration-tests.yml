@@ -105,15 +105,6 @@ jobs:
             adb shell pm grant to.bullet.example android.permission.READ_CALENDAR
             adb shell pm grant to.bullet.example android.permission.WRITE_CALENDAR
 
-            # Run integration tests
-            # Re-grant permissions between runs because flutter test reinstalls the app
+            # Run all integration tests in a single invocation
             echo "Running integration tests..."
-            flutter test integration_test/device_calendar_test.dart
-
-            adb shell pm grant to.bullet.example android.permission.READ_CALENDAR
-            adb shell pm grant to.bullet.example android.permission.WRITE_CALENDAR
-            flutter test integration_test/recurrence_test.dart
-
-            adb shell pm grant to.bullet.example android.permission.READ_CALENDAR
-            adb shell pm grant to.bullet.example android.permission.WRITE_CALENDAR
-            flutter test integration_test/attendee_test.dart
+            flutter test integration_test/all_tests.dart
