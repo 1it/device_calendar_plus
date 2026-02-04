@@ -33,9 +33,16 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Get dependencies
+      - name: Get dependencies (workspace)
         run: flutter pub get
-        # Workspace root resolves all packages including example app
+
+      - name: Prepare example for standalone build
+        run: |
+          cd packages/device_calendar_plus/example
+          # Remove workspace resolution for CI compatibility
+          sed -i 's/^resolution: workspace$//' pubspec.yaml
+          # Get dependencies as standalone project
+          flutter pub get
 
       - name: Enable KVM group perms
         run: |
@@ -67,10 +74,6 @@ jobs:
           disable-animations: true
           script: echo "Generated AVD snapshot for caching"
 
-      - name: Build example app APK
-        run: flutter build apk --debug
-        working-directory: packages/device_calendar_plus/example
-
       - name: Run integration tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -87,8 +90,8 @@ jobs:
             adb shell pm grant to.bullet.example android.permission.READ_CALENDAR || true
             adb shell pm grant to.bullet.example android.permission.WRITE_CALENDAR || true
 
-            # Run all integration tests (--no-pub since workspace already resolved)
+            # Run integration tests
             echo "Running integration tests..."
-            flutter test integration_test/device_calendar_test.dart --no-pub
-            flutter test integration_test/recurrence_test.dart --no-pub
-            flutter test integration_test/attendee_test.dart --no-pub
+            flutter test integration_test/device_calendar_test.dart
+            flutter test integration_test/recurrence_test.dart
+            flutter test integration_test/attendee_test.dart
