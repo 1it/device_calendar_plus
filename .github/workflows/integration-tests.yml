@@ -1,0 +1,110 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  android-integration-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    strategy:
+      matrix:
+        api-level: [30]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies (workspace)
+        run: flutter pub get
+
+      - name: Prepare example for standalone build
+        run: |
+          cd packages/device_calendar_plus/example
+          # Remove workspace resolution for CI compatibility
+          sed -i 's/^resolution: workspace$//' pubspec.yaml
+          # Add dependency overrides for local packages
+          echo "" >> pubspec.yaml
+          echo "dependency_overrides:" >> pubspec.yaml
+          echo "  device_calendar_plus:" >> pubspec.yaml
+          echo "    path: ../" >> pubspec.yaml
+          echo "  device_calendar_plus_platform_interface:" >> pubspec.yaml
+          echo "    path: ../../device_calendar_plus_platform_interface" >> pubspec.yaml
+          echo "  device_calendar_plus_android:" >> pubspec.yaml
+          echo "    path: ../../device_calendar_plus_android" >> pubspec.yaml
+          echo "  device_calendar_plus_ios:" >> pubspec.yaml
+          echo "    path: ../../device_calendar_plus_ios" >> pubspec.yaml
+          # Get dependencies as standalone project
+          flutter pub get
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Gradle cache
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: AVD cache
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ matrix.api-level }}
+
+      - name: Create AVD and generate snapshot for caching
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          target: google_apis
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: echo "Generated AVD snapshot for caching"
+
+      - name: Run integration tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          target: google_apis
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          working-directory: packages/device_calendar_plus/example
+          script: |
+            # Build and install the app first
+            echo "Building and installing app..."
+            flutter build apk --debug
+            adb install -r build/app/outputs/flutter-apk/app-debug.apk
+
+            # Grant calendar permissions AFTER app is installed
+            echo "Granting calendar permissions..."
+            adb shell pm grant to.bullet.example android.permission.READ_CALENDAR
+            adb shell pm grant to.bullet.example android.permission.WRITE_CALENDAR
+
+            # Run all integration tests in a single invocation
+            echo "Running integration tests..."
+            flutter test integration_test/all_tests.dart

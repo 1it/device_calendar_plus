@@ -36,6 +36,8 @@ Created by [Bullet](https://bullet.to) — a personal task + notes + calendar ap
 - **All-Day Events**: Proper handling of floating calendar dates
 - **Timezones**: Correct timezone behavior for timed events
 - **Recurring Events**: Read recurring event instances; update/delete entire series
+- **Attendees**: Add, retrieve, and manage event invitees/attendees
+- **Conference Links**: Read meeting URLs from events (Google Meet, Zoom, Teams, etc.)
 
 ## 🧩 Installation
 
@@ -45,8 +47,6 @@ Add the dependency to your project:
 dependencies:
   device_calendar_plus: <latest version>
 ```
-
-
 
 ### iOS
 
@@ -105,7 +105,7 @@ final birthdayEvent = await plugin.getEvent(birthdayId);
 if (birthdayEvent.isAllDay) {
   // ✅ Use the date components directly
   print('Birthday: ${birthdayEvent.startDate.year}-${birthdayEvent.startDate.month}-${birthdayEvent.startDate.day}');
-  
+
   // ❌ Don't convert to UTC - it's a calendar date, not a moment in time
   // final utcDate = birthdayEvent.startDate.toUtc(); // DON'T DO THIS
 }
@@ -115,7 +115,7 @@ final meetingEvent = await plugin.getEvent(meetingId);
 if (!meetingEvent.isAllDay) {
   // ✅ Convert to UTC for storage/comparison
   final utcTime = meetingEvent.startDate.toUtc();
-  
+
   // ✅ Format in local time for display
   print('Meeting at: ${meetingEvent.startDate}');
 }
@@ -134,11 +134,9 @@ enum DeviceCalendarError {
 
 This enum provides stable, descriptive error codes for all exceptions thrown by the plugin.
 
-> **Note on error codes:**
-> `DeviceCalendarError` exists for developer ergonomics and clearer `switch` handling.
+> **Note on error codes:** > `DeviceCalendarError` exists for developer ergonomics and clearer `switch` handling.
 > We may introduce new enum values in future minor versions as new error cases appear.
-We do not consider this a breaking change.
-
+> We do not consider this a breaking change.
 
 ## 🛠️ Usage Examples
 
@@ -249,6 +247,39 @@ final instance = await plugin.getEvent(event.instanceId);
 final masterEvent = await plugin.getEvent(event.eventId);
 ```
 
+### Event Model
+
+The `Event` class includes all properties returned when retrieving events:
+
+| Property         | Type                | Description                                                   |
+| ---------------- | ------------------- | ------------------------------------------------------------- |
+| `eventId`        | `String`            | Unique system identifier for this event                       |
+| `instanceId`     | `String`            | Instance identifier for specific occurrences (recurring events) |
+| `calendarId`     | `String`            | ID of the calendar this event belongs to                      |
+| `title`          | `String`            | Title of the event                                            |
+| `description`    | `String?`           | Description/notes of the event                                |
+| `location`       | `String?`           | Location of the event                                         |
+| `conferenceUrl`  | `String?`           | Conference/meeting link (Google Meet, Zoom, Teams, etc.)      |
+| `startDate`      | `DateTime`          | Start date and time                                           |
+| `endDate`        | `DateTime`          | End date and time                                             |
+| `isAllDay`       | `bool`              | Whether this is an all-day event                              |
+| `availability`   | `EventAvailability` | Availability status (busy, free, tentative)                   |
+| `status`         | `EventStatus`       | Event status (confirmed, tentative, canceled)                 |
+| `timeZone`       | `String?`           | Timezone identifier (null for all-day events)                 |
+| `isRecurring`    | `bool`              | Whether this is a recurring event                             |
+| `recurrenceRule` | `RecurrenceRule?`   | The recurrence rule (if recurring)                            |
+| `attendees`      | `List<Attendee>?`   | List of attendees/invitees                                    |
+
+#### Conference URL Field Notes
+
+The `conferenceUrl` field extracts meeting links from events:
+
+- **iOS**: Uses `EKEvent.url` - commonly populated by calendar apps for meeting links
+- **Android**: Queries `ExtendedProperties` table to find Google Meet, Zoom, Teams, WebEx, and GoToMeeting URLs
+
+> [!NOTE]
+> The `conferenceUrl` field is read-only. Not all calendar apps populate meeting data, so it may be `null` even for events that display a meeting link in the native calendar app.
+
 ### Show Event in Modal
 
 ```dart
@@ -299,6 +330,115 @@ final detailedEventId = await plugin.createEvent(
 );
 ```
 
+### Create Recurring Event
+
+You can create recurring events by passing a `RecurrenceRule` object:
+
+```dart
+// Create a daily recurring event (repeats forever)
+await plugin.createEvent(
+  calendarId: 'your-calendar-id',
+  title: 'Daily Standup',
+  startDate: DateTime(2024, 3, 20, 9, 0),
+  endDate: DateTime(2024, 3, 20, 9, 15),
+  recurrenceRule: RecurrenceRule(
+    frequency: RecurrenceFrequency.daily,
+  ),
+);
+
+// Create a weekly event that ends after 10 occurrences
+await plugin.createEvent(
+  calendarId: 'your-calendar-id',
+  title: 'Weekly Sync',
+  startDate: DateTime(2024, 3, 20, 10, 0),
+  endDate: DateTime(2024, 3, 20, 11, 0),
+  recurrenceRule: RecurrenceRule(
+    frequency: RecurrenceFrequency.weekly,
+    interval: 1,
+    occurrences: 10,
+    daysOfWeek: [DayOfWeek.monday, DayOfWeek.wednesday], // repeats on Mon & Wed
+  ),
+);
+
+// Create a monthly event that ends on a specific date
+await plugin.createEvent(
+  calendarId: 'your-calendar-id',
+  title: 'Monthly Review',
+  startDate: DateTime(2024, 3, 1, 14, 0),
+  endDate: DateTime(2024, 3, 1, 15, 0),
+  recurrenceRule: RecurrenceRule(
+    frequency: RecurrenceFrequency.monthly,
+    endDate: DateTime(2024, 12, 31),
+  ),
+);
+```
+
+### Create Event with Attendees
+
+You can add attendees/invitees when creating an event:
+
+```dart
+final plugin = DeviceCalendar.instance;
+
+// Create an event with attendees
+final eventId = await plugin.createEvent(
+  calendarId: 'your-calendar-id',
+  title: 'Team Meeting',
+  startDate: DateTime(2024, 3, 20, 14, 0),
+  endDate: DateTime(2024, 3, 20, 15, 0),
+  attendees: [
+    Attendee(
+      name: 'John Doe',
+      emailAddress: 'john.doe@example.com',
+      role: AttendeeRole.required,
+      status: AttendeeStatus.invited,
+    ),
+    Attendee(
+      name: 'Jane Smith',
+      emailAddress: 'jane.smith@example.com',
+      role: AttendeeRole.optional,
+    ),
+  ],
+);
+```
+
+> [!IMPORTANT] > **iOS Limitation**: Programmatically adding invitees/attendees to an event is **not supported** implementation-wise by Apple's EventKit framework (the `attendees` property is read-only). On iOS, you can only _retrieve_ existing attendees from events. To add attendees on iOS, you must use the native `EKEventEditViewController` UI or Apple's Calendar app. The `attendees` parameter will be ignored on iOS during creation and updates.
+
+### Retrieve Event Attendees
+
+Attendees are automatically included when retrieving events:
+
+```dart
+final plugin = DeviceCalendar.instance;
+
+// Get an event
+final event = await plugin.getEvent(eventId);
+
+// Check if the event has attendees
+if (event?.attendees != null && event!.attendees!.isNotEmpty) {
+  for (final attendee in event.attendees!) {
+    print('${attendee.name ?? attendee.emailAddress}');
+    print('  Role: ${attendee.role}');       // required, optional, resource, none
+    print('  Status: ${attendee.status}');   // invited, accepted, declined, tentative, none
+    print('  Organizer: ${attendee.isOrganizer}');
+    print('  Current User: ${attendee.isCurrentUser}');
+  }
+}
+```
+
+### Attendee Model
+
+The `Attendee` class includes:
+
+| Property        | Type             | Description                                               |
+| --------------- | ---------------- | --------------------------------------------------------- |
+| `name`          | `String?`        | Display name of the attendee                              |
+| `emailAddress`  | `String?`        | Email address (primary identifier)                        |
+| `role`          | `AttendeeRole`   | `required`, `optional`, `resource`, or `none`             |
+| `status`        | `AttendeeStatus` | `invited`, `accepted`, `declined`, `tentative`, or `none` |
+| `isOrganizer`   | `bool`           | Whether this attendee is the event organizer              |
+| `isCurrentUser` | `bool`           | Whether this attendee is the current device user          |
+
 ### Update Event
 
 ```dart
@@ -343,6 +483,67 @@ await plugin.updateEvent(
 ```
 
 **Note on Recurring Events**: For recurring events, `updateEvent` will always update the ENTIRE series (all past and future occurrences). Single-instance updates are not supported to maintain consistent behavior across platforms.
+
+### UI Event Editor
+
+For situations where programmatic event creation is limited (e.g. adding attendees on iOS), you can launch the native calendar editor UI.
+
+**Supported Pre-fill Fields:**
+
+| Field            | iOS | Android |
+| ---------------- | --- | ------- |
+| `title`          | ✅  | ✅      |
+| `description`    | ✅  | ✅      |
+| `location`       | ✅  | ✅      |
+| `startDate`      | ✅  | ✅      |
+| `endDate`        | ✅  | ✅      |
+| `isAllDay`       | ✅  | ✅      |
+| `timeZone`       | ✅  | ✅      |
+| `recurrenceRule` | ✅  | ✅      |
+| `attendees`      | ❌  | ✅      |
+
+**Important**:
+
+- **iOS**: Returns the `eventId` if the user saves the event, or `null` if cancelled.
+- **Android**: Always returns `null` as the native intent system does not return the created event ID.
+
+```dart
+final plugin = DeviceCalendar.instance;
+
+// Create a new event with pre-filled data
+await plugin.createOrEditEventModal(
+  eventData: Event(
+    eventId: '',
+    instanceId: '',
+    calendarId: '1',
+    title: 'Weekly Team Standup',
+    description: 'Discuss project updates and blockers.',
+    location: 'Conference Room A',
+    startDate: DateTime.now(),
+    endDate: DateTime.now().add(Duration(hours: 1)),
+    isAllDay: false,
+    availability: EventAvailability.busy,
+    status: EventStatus.confirmed,
+    isRecurring: true,
+    recurrenceRule: RecurrenceRule(
+      frequency: RecurrenceFrequency.weekly,
+      interval: 1,
+      daysOfWeek: [DayOfWeek.monday],
+    ),
+    attendees: [
+      Attendee(
+        emailAddress: 'colleague@example.com',
+        role: AttendeeRole.required,
+      ),
+    ],
+  ),
+);
+
+// Edit an existing event
+await plugin.createOrEditEventModal(
+  eventId: 'existing_event_id',
+);
+```
 
 ### Delete Event
 

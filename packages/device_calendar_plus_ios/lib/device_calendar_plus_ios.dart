@@ -127,6 +127,8 @@ class DeviceCalendarPlusIos extends DeviceCalendarPlusPlatform {
     String? location,
     String? timeZone,
     String availability,
+    String? recurrenceRule,
+    List<Map<String, dynamic>>? attendees,
   ) async {
     final result = await methodChannel.invokeMethod<String>(
       'createEvent',
@@ -140,6 +142,8 @@ class DeviceCalendarPlusIos extends DeviceCalendarPlusPlatform {
         'location': location,
         'timeZone': timeZone,
         'availability': availability,
+        'recurrenceRule': recurrenceRule,
+        'attendees': attendees,
       },
     );
     return result!;
@@ -165,6 +169,7 @@ class DeviceCalendarPlusIos extends DeviceCalendarPlusPlatform {
     String? location,
     bool? isAllDay,
     String? timeZone,
+    List<Map<String, dynamic>>? attendees,
   }) async {
     await methodChannel.invokeMethod<void>(
       'updateEvent',
@@ -177,6 +182,21 @@ class DeviceCalendarPlusIos extends DeviceCalendarPlusPlatform {
         'location': location,
         'isAllDay': isAllDay,
         'timeZone': timeZone,
+        'attendees': attendees,
+      },
+    );
+  }
+
+  @override
+  Future<String?> createOrEditEventModal({
+    String? eventId,
+    Map<String, dynamic>? eventData,
+  }) async {
+    return await methodChannel.invokeMethod<String?>(
+      'createOrEditEventModal',
+      <String, dynamic>{
+        'eventId': eventId,
+        'eventData': eventData,
       },
     );
   }

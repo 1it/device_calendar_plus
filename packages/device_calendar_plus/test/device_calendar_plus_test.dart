@@ -24,6 +24,8 @@ class MockDeviceCalendarPlusPlatform extends DeviceCalendarPlusPlatform
     String? location,
     String? timeZone,
     String availability,
+    String? recurrenceRule,
+    List<Map<String, dynamic>>? attendees,
   )? _createEventCallback;
 
   // Callback to capture updateEvent arguments
@@ -37,6 +39,7 @@ class MockDeviceCalendarPlusPlatform extends DeviceCalendarPlusPlatform
     bool? isAllDay,
     String? timeZone,
     String? availability,
+    List<Map<String, dynamic>>? attendees,
   })? _updateEventCallback;
 
   void setPermissionStatus(CalendarPermissionStatus status) {
@@ -74,6 +77,8 @@ class MockDeviceCalendarPlusPlatform extends DeviceCalendarPlusPlatform
       String? location,
       String? timeZone,
       String availability,
+      String? recurrenceRule,
+      List<Map<String, dynamic>>? attendees,
     ) callback,
   ) {
     _createEventCallback = callback;
@@ -90,6 +95,7 @@ class MockDeviceCalendarPlusPlatform extends DeviceCalendarPlusPlatform
       bool? isAllDay,
       String? timeZone,
       String? availability,
+      List<Map<String, dynamic>>? attendees,
     }) callback,
   ) {
     _updateEventCallback = callback;
@@ -193,6 +199,8 @@ class MockDeviceCalendarPlusPlatform extends DeviceCalendarPlusPlatform
     String? location,
     String? timeZone,
     String availability,
+    String? recurrenceRule,
+    List<Map<String, dynamic>>? attendees,
   ) async {
     if (_exceptionToThrow != null) {
       throw _exceptionToThrow!;
@@ -210,6 +218,8 @@ class MockDeviceCalendarPlusPlatform extends DeviceCalendarPlusPlatform
         location,
         timeZone,
         availability,
+        recurrenceRule,
+        attendees,
       );
     }
 
@@ -233,6 +243,7 @@ class MockDeviceCalendarPlusPlatform extends DeviceCalendarPlusPlatform
     String? location,
     bool? isAllDay,
     String? timeZone,
+    List<Map<String, dynamic>>? attendees,
   }) async {
     if (_exceptionToThrow != null) {
       throw _exceptionToThrow!;
@@ -247,8 +258,20 @@ class MockDeviceCalendarPlusPlatform extends DeviceCalendarPlusPlatform
         location: location,
         isAllDay: isAllDay,
         timeZone: timeZone,
+        attendees: attendees,
       );
     }
+  }
+
+  @override
+  Future<String?> createOrEditEventModal({
+    String? eventId,
+    Map<String, dynamic>? eventData,
+  }) async {
+    if (_exceptionToThrow != null) {
+      throw _exceptionToThrow!;
+    }
+    return null;
   }
 }
 
@@ -979,6 +1002,8 @@ void main() {
           location,
           timeZone,
           availability,
+          recurrenceRule,
+          attendees,
         ) {
           capturedStart = startDate;
           capturedEnd = endDate;
@@ -1034,6 +1059,8 @@ void main() {
           location,
           timeZone,
           availability,
+          recurrenceRule,
+          attendees,
         ) {
           capturedStart = startDate;
           capturedEnd = endDate;
@@ -1064,6 +1091,91 @@ void main() {
         );
 
         expect(eventId, isNotEmpty);
+      });
+
+      test('creates event with recurrence rule', () async {
+        String? capturedRrule;
+
+        final mock = MockDeviceCalendarPlusPlatform();
+        mock.setCreateEventCallback((
+          calendarId,
+          title,
+          startDate,
+          endDate,
+          isAllDay,
+          description,
+          location,
+          timeZone,
+          availability,
+          recurrenceRule,
+          attendees,
+        ) {
+          capturedRrule = recurrenceRule;
+          return Future.value('recurring-event-id');
+        });
+
+        DeviceCalendarPlusPlatform.instance = mock;
+
+        final eventId = await DeviceCalendar.instance.createEvent(
+          calendarId: 'cal-123',
+          title: 'Daily Standup',
+          startDate: DateTime(2024, 3, 15, 9, 0),
+          endDate: DateTime(2024, 3, 15, 9, 15),
+          recurrenceRule: RecurrenceRule(
+            frequency: RecurrenceFrequency.daily,
+            interval: 1,
+            occurrences: 30,
+          ),
+        );
+
+        expect(eventId, equals('recurring-event-id'));
+        expect(capturedRrule, isNotNull);
+        expect(capturedRrule, contains('FREQ=DAILY'));
+        expect(capturedRrule, contains('COUNT=30'));
+      });
+
+      test('creates weekly recurring event with specific days', () async {
+        String? capturedRrule;
+
+        final mock = MockDeviceCalendarPlusPlatform();
+        mock.setCreateEventCallback((
+          calendarId,
+          title,
+          startDate,
+          endDate,
+          isAllDay,
+          description,
+          location,
+          timeZone,
+          availability,
+          recurrenceRule,
+          attendees,
+        ) {
+          capturedRrule = recurrenceRule;
+          return Future.value('weekly-event-id');
+        });
+
+        DeviceCalendarPlusPlatform.instance = mock;
+
+        final eventId = await DeviceCalendar.instance.createEvent(
+          calendarId: 'cal-123',
+          title: 'Weekly Sync',
+          startDate: DateTime(2024, 3, 18, 10, 0),
+          endDate: DateTime(2024, 3, 18, 11, 0),
+          recurrenceRule: RecurrenceRule(
+            frequency: RecurrenceFrequency.weekly,
+            daysOfWeek: [
+              DayOfWeek.monday,
+              DayOfWeek.wednesday,
+              DayOfWeek.friday
+            ],
+          ),
+        );
+
+        expect(eventId, equals('weekly-event-id'));
+        expect(capturedRrule, isNotNull);
+        expect(capturedRrule, contains('FREQ=WEEKLY'));
+        expect(capturedRrule, contains('BYDAY='));
       });
 
       test('throws ArgumentError when calendar ID is empty', () async {
@@ -1226,6 +1338,7 @@ void main() {
           isAllDay,
           timeZone,
           availability,
+          attendees,
         }) {
           capturedStart = startDate;
           capturedEnd = endDate;
@@ -1277,6 +1390,7 @@ void main() {
           isAllDay,
           timeZone,
           availability,
+          attendees,
         }) {
           capturedStart = startDate;
           capturedEnd = endDate;

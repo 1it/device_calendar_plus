@@ -24,7 +24,7 @@ class DeviceCalendarPlusAndroidPlugin :
     private var calendarService: CalendarService? = null
     private var eventsService: EventsService? = null
     private var showEventModalResult: Result? = null
-    
+
     companion object {
         private const val SHOW_EVENT_REQUEST_CODE = 1001
     }
@@ -49,13 +49,14 @@ class DeviceCalendarPlusAndroidPlugin :
             "createEvent" -> handleCreateEvent(call, result)
             "deleteEvent" -> handleDeleteEvent(call, result)
             "updateEvent" -> handleUpdateEvent(call, result)
+            "createOrEditEventModal" -> handleCreateOrEditEventModal(call, result)
             else -> result.notImplemented()
         }
     }
 
     private fun handleRequestPermissions(result: Result) {
         val service = permissionService!!
-        
+
         service.requestPermissions { serviceResult ->
             serviceResult.fold(
                 onSuccess = { status -> result.success(status) },
@@ -69,10 +70,10 @@ class DeviceCalendarPlusAndroidPlugin :
             )
         }
     }
-    
+
     private fun handleHasPermissions(result: Result) {
         val service = permissionService!!
-        
+
         val serviceResult = service.hasPermissions()
         serviceResult.fold(
             onSuccess = { status -> result.success(status) },
@@ -85,7 +86,7 @@ class DeviceCalendarPlusAndroidPlugin :
             }
         )
     }
-    
+
     private fun handleOpenAppSettings(result: Result) {
         val currentActivity = activity
         if (currentActivity == null) {
@@ -96,7 +97,7 @@ class DeviceCalendarPlusAndroidPlugin :
             )
             return
         }
-        
+
         try {
             val intent = android.content.Intent(
                 android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -113,10 +114,10 @@ class DeviceCalendarPlusAndroidPlugin :
             )
         }
     }
-    
+
     private fun handleListCalendars(result: Result) {
         val service = calendarService!!
-        
+
         val serviceResult = service.listCalendars()
         serviceResult.fold(
             onSuccess = { calendars -> result.success(calendars) },
@@ -129,15 +130,15 @@ class DeviceCalendarPlusAndroidPlugin :
             }
         )
     }
-    
+
     private fun handleCreateCalendar(call: MethodCall, result: Result) {
         val service = calendarService ?: error("CalendarService not initialized - plugin lifecycle error")
-        
+
         // Parse arguments
         val name = call.argument<String>("name")
         val colorHex = call.argument<String>("colorHex")
         val accountName = call.argument<String>("accountName")
-        
+
         if (name == null) {
             result.error(
                 PlatformExceptionCodes.INVALID_ARGUMENTS,
@@ -146,7 +147,7 @@ class DeviceCalendarPlusAndroidPlugin :
             )
             return
         }
-        
+
         val serviceResult = service.createCalendar(name, colorHex, accountName)
         serviceResult.fold(
             onSuccess = { calendarId -> result.success(calendarId) },
@@ -159,15 +160,15 @@ class DeviceCalendarPlusAndroidPlugin :
             }
         )
     }
-    
+
     private fun handleUpdateCalendar(call: MethodCall, result: Result) {
         val service = calendarService ?: error("CalendarService not initialized - plugin lifecycle error")
-        
+
         // Parse arguments
         val calendarId = call.argument<String>("calendarId")
         val name = call.argument<String>("name")
         val colorHex = call.argument<String>("colorHex")
-        
+
         if (calendarId == null) {
             result.error(
                 PlatformExceptionCodes.INVALID_ARGUMENTS,
@@ -176,7 +177,7 @@ class DeviceCalendarPlusAndroidPlugin :
             )
             return
         }
-        
+
         val serviceResult = service.updateCalendar(calendarId, name, colorHex)
         serviceResult.fold(
             onSuccess = { result.success(null) },
@@ -189,13 +190,13 @@ class DeviceCalendarPlusAndroidPlugin :
             }
         )
     }
-    
+
     private fun handleDeleteCalendar(call: MethodCall, result: Result) {
         val service = calendarService ?: error("CalendarService not initialized - plugin lifecycle error")
-        
+
         // Parse arguments
         val calendarId = call.argument<String>("calendarId")
-        
+
         if (calendarId == null) {
             result.error(
                 PlatformExceptionCodes.INVALID_ARGUMENTS,
@@ -204,7 +205,7 @@ class DeviceCalendarPlusAndroidPlugin :
             )
             return
         }
-        
+
         val serviceResult = service.deleteCalendar(calendarId)
         serviceResult.fold(
             onSuccess = { result.success(null) },
@@ -217,15 +218,15 @@ class DeviceCalendarPlusAndroidPlugin :
             }
         )
     }
-    
+
     private fun handleListEvents(call: MethodCall, result: Result) {
         val service = eventsService ?: error("EventsService not initialized - plugin lifecycle error")
-        
+
         // Parse arguments
         val startDateMillis = call.argument<Long>("startDate")
         val endDateMillis = call.argument<Long>("endDate")
         val calendarIds = call.argument<List<String>>("calendarIds")
-        
+
         if (startDateMillis == null || endDateMillis == null) {
             result.error(
                 PlatformExceptionCodes.INVALID_ARGUMENTS,
@@ -234,10 +235,10 @@ class DeviceCalendarPlusAndroidPlugin :
             )
             return
         }
-        
+
         val startDate = java.util.Date(startDateMillis)
         val endDate = java.util.Date(endDateMillis)
-        
+
         val serviceResult = service.retrieveEvents(startDate, endDate, calendarIds)
         serviceResult.fold(
             onSuccess = { events -> result.success(events) },
@@ -250,14 +251,14 @@ class DeviceCalendarPlusAndroidPlugin :
             }
         )
     }
-    
+
     private fun handleGetEvent(call: MethodCall, result: Result) {
         val service = eventsService ?: error("EventsService not initialized - plugin lifecycle error")
-        
+
         // Parse arguments
         val eventId = call.argument<String>("eventId")
         val timestamp = call.argument<Long>("timestamp")
-        
+
         if (eventId == null) {
             result.error(
                 PlatformExceptionCodes.INVALID_ARGUMENTS,
@@ -266,7 +267,7 @@ class DeviceCalendarPlusAndroidPlugin :
             )
             return
         }
-        
+
         val serviceResult = service.getEvent(eventId, timestamp)
         serviceResult.fold(
             onSuccess = { event -> result.success(event) },
@@ -279,15 +280,15 @@ class DeviceCalendarPlusAndroidPlugin :
             }
         )
     }
-    
+
     private fun handleShowEventModal(call: MethodCall, result: Result) {
         val service = eventsService ?: error("EventsService not initialized - plugin lifecycle error")
         val currentActivity = activity ?: error("Activity not initialized - plugin lifecycle error")
-        
+
         // Parse arguments
         val eventId = call.argument<String>("eventId")
         val timestamp = call.argument<Long>("timestamp")
-        
+
         if (eventId == null) {
             result.error(
                 PlatformExceptionCodes.INVALID_ARGUMENTS,
@@ -296,10 +297,10 @@ class DeviceCalendarPlusAndroidPlugin :
             )
             return
         }
-        
+
         // Store the result callback to call when activity returns
         showEventModalResult = result
-        
+
         val serviceResult = service.showEvent(currentActivity, eventId, timestamp, SHOW_EVENT_REQUEST_CODE)
         serviceResult.fold(
             onSuccess = { /* Result will be sent in onActivityResult */ },
@@ -314,10 +315,10 @@ class DeviceCalendarPlusAndroidPlugin :
             }
         )
     }
-    
+
     private fun handleCreateEvent(call: MethodCall, result: Result) {
         val service = eventsService ?: error("EventsService not initialized - plugin lifecycle error")
-        
+
         // Parse arguments
         val calendarId = call.argument<String>("calendarId")
         val title = call.argument<String>("title")
@@ -328,10 +329,13 @@ class DeviceCalendarPlusAndroidPlugin :
         val location = call.argument<String>("location")
         val timeZone = call.argument<String>("timeZone")
         val availability = call.argument<String>("availability")
-        
+        val recurrenceRule = call.argument<String>("recurrenceRule")
+        val attendees = call.argument<List<Map<String, Any?>>>("attendees")
+
         // Validate required arguments
-        if (calendarId == null || title == null || startDateMillis == null || 
-            endDateMillis == null || isAllDay == null || availability == null) {
+        if (calendarId == null || title == null || startDateMillis == null ||
+            endDateMillis == null || isAllDay == null || availability == null
+        ) {
             result.error(
                 PlatformExceptionCodes.INVALID_ARGUMENTS,
                 "Missing required arguments for createEvent",
@@ -339,10 +343,10 @@ class DeviceCalendarPlusAndroidPlugin :
             )
             return
         }
-        
+
         val startDate = java.util.Date(startDateMillis)
         val endDate = java.util.Date(endDateMillis)
-        
+
         val serviceResult = service.createEvent(
             calendarId,
             title,
@@ -352,9 +356,11 @@ class DeviceCalendarPlusAndroidPlugin :
             description,
             location,
             timeZone,
-            availability
+            availability,
+            recurrenceRule,
+            attendees
         )
-        
+
         serviceResult.fold(
             onSuccess = { eventId -> result.success(eventId) },
             onFailure = { error ->
@@ -366,13 +372,13 @@ class DeviceCalendarPlusAndroidPlugin :
             }
         )
     }
-    
+
     private fun handleDeleteEvent(call: MethodCall, result: Result) {
         val service = eventsService ?: error("EventsService not initialized - plugin lifecycle error")
-        
+
         // Parse arguments
         val eventId = call.argument<String>("eventId")
-        
+
         if (eventId == null) {
             result.error(
                 PlatformExceptionCodes.INVALID_ARGUMENTS,
@@ -381,7 +387,7 @@ class DeviceCalendarPlusAndroidPlugin :
             )
             return
         }
-        
+
         val serviceResult = service.deleteEvent(eventId)
         serviceResult.fold(
             onSuccess = { result.success(null) },
@@ -394,13 +400,13 @@ class DeviceCalendarPlusAndroidPlugin :
             }
         )
     }
-    
+
     private fun handleUpdateEvent(call: MethodCall, result: Result) {
         val service = eventsService ?: error("EventsService not initialized - plugin lifecycle error")
-        
+
         // Parse required arguments
         val eventId = call.argument<String>("eventId")
-        
+
         if (eventId == null) {
             result.error(
                 PlatformExceptionCodes.INVALID_ARGUMENTS,
@@ -409,7 +415,7 @@ class DeviceCalendarPlusAndroidPlugin :
             )
             return
         }
-        
+
         // Parse optional arguments (all can be null)
         val title = call.argument<String>("title")
         val startDateMillis = call.argument<Long>("startDate")
@@ -418,11 +424,12 @@ class DeviceCalendarPlusAndroidPlugin :
         val location = call.argument<String>("location")
         val isAllDay = call.argument<Boolean>("isAllDay")
         val timeZone = call.argument<String>("timeZone")
-        
+        val attendees = call.argument<List<Map<String, Any?>>>("attendees")
+
         // Convert dates if provided
         val startDate = startDateMillis?.let { java.util.Date(it) }
         val endDate = endDateMillis?.let { java.util.Date(it) }
-        
+
         val serviceResult = service.updateEvent(
             eventId,
             title,
@@ -431,9 +438,10 @@ class DeviceCalendarPlusAndroidPlugin :
             description,
             location,
             isAllDay,
-            timeZone
+            timeZone,
+            attendees
         )
-        
+
         serviceResult.fold(
             onSuccess = { result.success(null) },
             onFailure = { error ->
@@ -446,6 +454,19 @@ class DeviceCalendarPlusAndroidPlugin :
         )
     }
 
+    private fun handleCreateOrEditEventModal(call: MethodCall, result: Result) {
+        val service = eventsService ?: error("EventsService not initialized - plugin lifecycle error")
+        val currentActivity = activity ?: error("Activity not initialized - plugin lifecycle error")
+
+        // Parse arguments
+        val eventId = call.argument<String>("eventId")
+        val eventData = call.argument<Map<String, Any?>>("eventData")
+
+        service.createOrEditEventModal(currentActivity, eventId, eventData)
+        // Fire and forget - Android Intent doesn't return a result in this context
+        result.success(null)
+    }
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -453,7 +474,7 @@ class DeviceCalendarPlusAndroidPlugin :
     ): Boolean {
         return permissionService?.onRequestPermissionsResult(requestCode, permissions, grantResults) ?: false
     }
-    
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?): Boolean {
         if (requestCode == SHOW_EVENT_REQUEST_CODE) {
             // Calendar activity closed, complete the future

@@ -1,5 +1,9 @@
+import 'package:device_calendar_plus_platform_interface/device_calendar_plus_platform_interface.dart'
+    show Attendee;
+
 import 'event_availability.dart';
 import 'event_status.dart';
+import 'recurrence_rule.dart';
 
 /// Represents a calendar event.
 class Event {
@@ -50,6 +54,11 @@ class Event {
   /// Location of the event.
   final String? location;
 
+  /// Conference/meeting link if available (e.g., Google Meet, Zoom, Teams).
+  /// On Android, this is extracted from ExtendedProperties.
+  /// On iOS, this uses EKEvent.url.
+  final String? conferenceUrl;
+
   /// Start date and time of the event.
   ///
   /// For all-day events, treat this as a floating date (timezone-independent).
@@ -78,6 +87,18 @@ class Event {
   /// True for recurring events, false for one-time events.
   final bool isRecurring;
 
+  /// The recurrence rule for this event.
+  ///
+  /// Null for non-recurring events.
+  /// For recurring events, this contains the parsed recurrence rule from the native calendar.
+  final RecurrenceRule? recurrenceRule;
+
+  /// List of attendees/invitees for this event.
+  ///
+  /// Null if attendees were not fetched or are not supported.
+  /// Empty list if the event has no attendees.
+  final List<Attendee>? attendees;
+
   Event({
     required this.eventId,
     required this.instanceId,
@@ -85,6 +106,7 @@ class Event {
     required this.title,
     this.description,
     this.location,
+    this.conferenceUrl,
     required this.startDate,
     required this.endDate,
     required this.isAllDay,
@@ -92,6 +114,8 @@ class Event {
     required this.status,
     this.timeZone,
     required this.isRecurring,
+    this.recurrenceRule,
+    this.attendees,
   });
 
   /// Creates an Event from a map returned by the platform.
@@ -103,6 +127,7 @@ class Event {
       title: map['title'] as String,
       description: map['description'] as String?,
       location: map['location'] as String?,
+      conferenceUrl: map['conferenceUrl'] as String?,
       startDate: DateTime.fromMillisecondsSinceEpoch(map['startDate'] as int),
       endDate: DateTime.fromMillisecondsSinceEpoch(map['endDate'] as int),
       isAllDay: map['isAllDay'] as bool,
@@ -110,6 +135,12 @@ class Event {
       status: EventStatus.fromName(map['status'] as String),
       timeZone: map['timeZone'] as String?,
       isRecurring: map['isRecurring'] as bool? ?? false,
+      recurrenceRule: map['recurrenceRule'] != null
+          ? RecurrenceRule.fromRruleString(map['recurrenceRule'] as String)
+          : null,
+      attendees: (map['attendees'] as List<dynamic>?)
+          ?.map((a) => Attendee.fromMap(Map<String, dynamic>.from(a as Map)))
+          .toList(),
     );
   }
 
@@ -130,7 +161,14 @@ class Event {
 
     if (description != null) map['description'] = description;
     if (location != null) map['location'] = location;
+    if (conferenceUrl != null) map['conferenceUrl'] = conferenceUrl;
     if (timeZone != null) map['timeZone'] = timeZone;
+    if (recurrenceRule != null) {
+      map['recurrenceRule'] = recurrenceRule!.toRruleString();
+    }
+    if (attendees != null) {
+      map['attendees'] = attendees!.map((a) => a.toMap()).toList();
+    }
 
     return map;
   }
@@ -152,13 +190,15 @@ class Event {
         other.title == title &&
         other.description == description &&
         other.location == location &&
+        other.conferenceUrl == conferenceUrl &&
         other.startDate == startDate &&
         other.endDate == endDate &&
         other.isAllDay == isAllDay &&
         other.availability == availability &&
         other.status == status &&
         other.timeZone == timeZone &&
-        other.isRecurring == isRecurring;
+        other.isRecurring == isRecurring &&
+        other.recurrenceRule == recurrenceRule;
   }
 
   @override
@@ -170,6 +210,7 @@ class Event {
       title,
       description,
       location,
+      conferenceUrl,
       startDate,
       endDate,
       isAllDay,
@@ -177,6 +218,7 @@ class Event {
       status,
       timeZone,
       isRecurring,
+      recurrenceRule,
     );
   }
 }

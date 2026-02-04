@@ -2,6 +2,7 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'src/create_calendar_options.dart';
 
+export 'src/attendee.dart';
 export 'src/create_calendar_options.dart';
 export 'src/instance_id_parser.dart';
 
@@ -148,9 +149,11 @@ abstract class DeviceCalendarPlusPlatform extends PlatformInterface {
   /// [location] is optional event location.
   /// [timeZone] is optional timezone identifier (null for all-day events).
   /// [availability] is the availability status (busy, free, tentative, unavailable).
+  /// [recurrenceRule] is an optional RRULE string for recurring events.
   ///
   /// Returns the ID of the newly created event (system-generated).
   /// Requires calendar write permissions.
+  /// [attendees] is an optional list of attendee data maps for event invitees.
   Future<String> createEvent(
     String calendarId,
     String title,
@@ -161,6 +164,8 @@ abstract class DeviceCalendarPlusPlatform extends PlatformInterface {
     String? location,
     String? timeZone,
     String availability,
+    String? recurrenceRule,
+    List<Map<String, dynamic>>? attendees,
   );
 
   /// Deletes an event from the device.
@@ -193,6 +198,10 @@ abstract class DeviceCalendarPlusPlatform extends PlatformInterface {
   ///
   /// At least one field must be provided.
   /// Requires calendar write permissions.
+  /// - [attendees] - new list of attendees (null = no change, empty = remove all)
+  ///
+  /// At least one field must be provided.
+  /// Requires calendar write permissions.
   Future<void> updateEvent(
     String eventId, {
     String? title,
@@ -202,5 +211,19 @@ abstract class DeviceCalendarPlusPlatform extends PlatformInterface {
     String? location,
     bool? isAllDay,
     String? timeZone,
+    List<Map<String, dynamic>>? attendees,
+  });
+
+  /// Opens the native calendar editor to create or edit an event.
+  ///
+  /// [eventId] - If provided, opens the editor for the existing event.
+  /// [eventData] - Data to pre-fill for a new event (if eventId is null).
+  ///
+  /// Returns:
+  /// - iOS: The event ID if the user saved the event, or null if cancelled.
+  /// - Android: Always returns null (Android intents are fire-and-forget).
+  Future<String?> createOrEditEventModal({
+    String? eventId,
+    Map<String, dynamic>? eventData,
   });
 }

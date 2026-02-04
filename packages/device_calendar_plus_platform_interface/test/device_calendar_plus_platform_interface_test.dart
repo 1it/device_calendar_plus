@@ -58,6 +58,8 @@ class MockDeviceCalendarPlusPlatform extends DeviceCalendarPlusPlatform
     String? location,
     String? timeZone,
     String availability,
+    String? recurrenceRule,
+    List<Map<String, dynamic>>? attendees,
   ) async =>
       'mock-event-id';
 
@@ -74,7 +76,15 @@ class MockDeviceCalendarPlusPlatform extends DeviceCalendarPlusPlatform
     String? location,
     bool? isAllDay,
     String? timeZone,
+    List<Map<String, dynamic>>? attendees,
   }) async {}
+
+  @override
+  Future<String?> createOrEditEventModal({
+    String? eventId,
+    Map<String, dynamic>? eventData,
+  }) async =>
+      null;
 }
 
 void main() {
@@ -173,6 +183,8 @@ void main() {
       'Conference Room A',
       'America/New_York',
       'busy',
+      null,
+      null,
     );
     expect(eventId, equals('mock-event-id'));
   });
